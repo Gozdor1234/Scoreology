@@ -287,7 +287,7 @@ private fun LazyListScope.gameItems(games: List<Game>, twoCol: Boolean, zoom: Fl
 
 /**
  * Favorites stay on top as before; every other game is grouped by local calendar day under a
- * subtle date divider (live games first within a day, then by kickoff). With "My teams" on,
+ * subtle date divider (within a day: live, then upcoming, then final, each by kickoff). With "My teams" on,
  * all shown games are favorites, so they're grouped by day too.
  */
 private fun LazyListScope.dayGroupedItems(
@@ -301,12 +301,14 @@ private fun LazyListScope.dayGroupedItems(
 ) {
     val favs = if (mineOnly) emptyList() else games.filter(isFav)
     val rest = games.filterNot { it in favs }
-    if (favs.isNotEmpty()) gameItems(favs, twoCol, zoom, card)
+    // Live games first, then upcoming, then finished; by kickoff within each.
+    val order = compareBy<Game>({ when (it.state) { "in" -> 0; "pre" -> 1; else -> 2 } }, { it.date })
+    if (favs.isNotEmpty()) gameItems(favs.sortedWith(order), twoCol, zoom, card)
     val zone = java.time.ZoneId.systemDefault()
     fun day(g: Game) = runCatching { java.time.OffsetDateTime.parse(g.date).atZoneSameInstant(zone).toLocalDate() }.getOrNull()
     rest.groupBy(::day).toSortedMap(nullsLast(compareBy<java.time.LocalDate> { it })).forEach { (d, list) ->
         item(key = "day-$section-${d ?: "tbd"}") { DayDivider(d) }
-        gameItems(list.sortedWith(compareBy<Game>({ if (it.state == "in") 0 else 1 }, { it.date })), twoCol, zoom, card)
+        gameItems(list.sortedWith(order), twoCol, zoom, card)
     }
 }
 
