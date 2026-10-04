@@ -332,7 +332,7 @@ fun Modifier.modernWell(radius: Dp = 14.dp): Modifier =
  * Soft halo in two team colors around a card: [top] glows along the upper edge, [bottom] along
  * the lower edge, blending down the sides. Drawn behind the card, so the card itself stays plain.
  */
-fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp, alpha: Float = 0.95f): Modifier {
+fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp, alpha: Float = 0.88f): Modifier {
     if (top == null && bottom == null) return this
     val a = top ?: bottom!!
     val b = bottom ?: top!!
