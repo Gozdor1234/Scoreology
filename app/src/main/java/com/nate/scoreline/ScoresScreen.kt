@@ -287,7 +287,7 @@ private fun LazyListScope.gameItems(games: List<Game>, twoCol: Boolean, zoom: Fl
 
 /**
  * Favorites stay on top as before; every other game is grouped by local calendar day under a
- * subtle date divider (within a day: live, then upcoming, then final, each by kickoff). With "My teams" on,
+ * subtle date divider: live and upcoming days first, then results with the most recent day last. With "My teams" on,
  * all shown games are favorites, so they're grouped by day too.
  */
 private fun LazyListScope.dayGroupedItems(
@@ -306,9 +306,16 @@ private fun LazyListScope.dayGroupedItems(
     if (favs.isNotEmpty()) gameItems(favs.sortedWith(order), twoCol, zoom, card)
     val zone = java.time.ZoneId.systemDefault()
     fun day(g: Game) = runCatching { java.time.OffsetDateTime.parse(g.date).atZoneSameInstant(zone).toLocalDate() }.getOrNull()
-    rest.groupBy(::day).toSortedMap(nullsLast(compareBy<java.time.LocalDate> { it })).forEach { (d, list) ->
-        item(key = "day-$section-${d ?: "tbd"}") { DayDivider(d) }
+    // Live and upcoming games first, by day; then results, oldest day first, so the most recent final is at the very bottom.
+    val (ahead, done) = rest.partition { it.state == "in" || it.state == "pre" }
+    val byDay = nullsLast(compareBy<java.time.LocalDate> { it })
+    ahead.groupBy(::day).toSortedMap(byDay).forEach { (d, list) ->
+        item(key = "day-$section-up-${d ?: "tbd"}") { DayDivider(d) }
         gameItems(list.sortedWith(order), twoCol, zoom, card)
+    }
+    done.groupBy(::day).toSortedMap(byDay).forEach { (d, list) ->
+        item(key = "day-$section-res-${d ?: "tbd"}") { DayDivider(d) }
+        gameItems(list.sortedBy { it.date }, twoCol, zoom, card)
     }
 }
 
