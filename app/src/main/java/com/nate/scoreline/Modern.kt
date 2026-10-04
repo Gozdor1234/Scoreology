@@ -313,3 +313,30 @@ fun Modifier.modernRound(): Modifier =
 @Composable
 fun Modifier.modernWell(radius: Dp = 14.dp): Modifier =
     if (LocalModern.current) this.neuInset(modernPalette, radius) else this
+
+/**
+ * Soft halo in two team colors around a card: [top] glows along the upper edge, [bottom] along
+ * the lower edge, blending down the sides. Drawn behind the card, so the card itself stays plain.
+ */
+fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp, alpha: Float = 0.8f): Modifier {
+    if (top == null && bottom == null) return this
+    val a = top ?: bottom!!
+    val b = bottom ?: top!!
+    return this.drawBehind {
+        val r = radius.toPx()
+        val grow = 1.dp.toPx()
+        val drop = 1.25.dp.toPx()
+        drawIntoCanvas { c ->
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                shader = android.graphics.LinearGradient(
+                    0f, 0f, 0f, size.height,
+                    intArrayOf(a.copy(alpha = alpha).toArgb(), a.copy(alpha = alpha).toArgb(), b.copy(alpha = alpha).toArgb(), b.copy(alpha = alpha).toArgb()),
+                    floatArrayOf(0f, 0.25f, 0.75f, 1f),
+                    android.graphics.Shader.TileMode.CLAMP,
+                )
+                maskFilter = android.graphics.BlurMaskFilter(blur.toPx(), android.graphics.BlurMaskFilter.Blur.NORMAL)
+            }
+            c.nativeCanvas.drawRoundRect(-grow, drop, size.width + grow, size.height + drop, r, r, paint)
+        }
+    }
+}

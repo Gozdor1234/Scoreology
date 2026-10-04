@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material3.HorizontalDivider
 import coil.request.ImageRequest
 import coil.compose.AsyncImage
@@ -421,11 +422,17 @@ private fun CollegeViewRow(fav: Favorites, view: String) {
 @Composable
 /** showDate: add the local game date after "Final" (used on team schedules). */
 fun GameCard(g: Game, favorite: Boolean, odds: GameOdds? = null, showDate: Boolean = false, onClick: () -> Unit) {
+    val darkUi = ColorMath.isDark(MaterialTheme.colorScheme.background.toArgb())
     Card(
         onClick = onClick,
         colors = if (favorite) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
         else CardDefaults.cardColors(),
-        modifier = Modifier.fillMaxWidth(),
+        // Team-color glow around the card: away team along the top, home team along the bottom.
+        modifier = Modifier.fillMaxWidth().teamGlow(
+            teamColor(g.away.color, g.away.altColor, darkUi),
+            teamColor(g.home.color, g.home.altColor, darkUi),
+            radius = if (LocalModern.current) 20.dp else 12.dp,
+        ),
     ) {
         Column(Modifier.padding(12.dp)) {
             TeamLine(g.away, g, hasBall = g.isLive && g.possessionTeamId == g.away.id)
