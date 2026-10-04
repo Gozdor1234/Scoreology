@@ -324,7 +324,7 @@ fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp,
     val b = bottom ?: top!!
     return this.drawBehind {
         val r = radius.toPx()
-        val grow = 1.75.dp.toPx()
+        val grow = 1.25.dp.toPx()
         val drop = 1.25.dp.toPx()
         drawIntoCanvas { c ->
             val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
