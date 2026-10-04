@@ -318,13 +318,13 @@ fun Modifier.modernWell(radius: Dp = 14.dp): Modifier =
  * Soft halo in two team colors around a card: [top] glows along the upper edge, [bottom] along
  * the lower edge, blending down the sides. Drawn behind the card, so the card itself stays plain.
  */
-fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp, alpha: Float = 0.8f): Modifier {
+fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp, alpha: Float = 0.95f): Modifier {
     if (top == null && bottom == null) return this
     val a = top ?: bottom!!
     val b = bottom ?: top!!
     return this.drawBehind {
         val r = radius.toPx()
-        val grow = 1.dp.toPx()
+        val grow = 1.75.dp.toPx()
         val drop = 1.25.dp.toPx()
         drawIntoCanvas { c ->
             val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
