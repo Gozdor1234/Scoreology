@@ -427,12 +427,9 @@ fun GameCard(g: Game, favorite: Boolean, odds: GameOdds? = null, showDate: Boole
         onClick = onClick,
         colors = if (favorite) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
         else CardDefaults.cardColors(),
+        modifier = Modifier.fillMaxWidth(),
         // Team-color glow around the card: away team along the top, home team along the bottom.
-        modifier = Modifier.fillMaxWidth().teamGlow(
-            teamColor(g.away.color, g.away.altColor, darkUi),
-            teamColor(g.home.color, g.home.altColor, darkUi),
-            radius = if (LocalModern.current) 20.dp else 12.dp,
-        ),
+        glow = CardGlow(teamColor(g.away.color, g.away.altColor, darkUi), teamColor(g.home.color, g.home.altColor, darkUi)),
     ) {
         Column(Modifier.padding(12.dp)) {
             TeamLine(g.away, g, hasBall = g.isLive && g.possessionTeamId == g.away.id)
