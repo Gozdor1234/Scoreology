@@ -59,18 +59,23 @@ object WidgetFormat {
     }
 
     /**
-     * Same order as the app: favorites first, then the other games grouped by local day
-     * (a divider row before each day), live games first within a day, then by start time.
+     * Favorites first; then today and upcoming days (a divider row before each day), and below
+     * them earlier days, most recent day first. Within a day: live, then upcoming, then finals,
+     * with finals in start order so the most recently finished game sits at the bottom.
      */
     fun rows(games: List<Game>, favIds: Set<String>, wide: Boolean, zone: ZoneId, today: LocalDate): List<WidgetRow> {
         val stateOrder = mapOf("in" to 0, "pre" to 1, "post" to 2)
+        val order = compareBy<Game>({ stateOrder[it.state] ?: 3 }, { it.date })
         fun isFav(g: Game) = g.home.id in favIds || g.away.id in favIds
         fun day(g: Game) = try { OffsetDateTime.parse(g.date).atZoneSameInstant(zone).toLocalDate() } catch (e: Exception) { null }
-        val favs = games.filter(::isFav).sortedWith(compareBy<Game>({ stateOrder[it.state] ?: 3 }, { it.date }))
-        val out = favs.map { row(it, wide, zone, today) }.toMutableList()
-        games.filterNot(::isFav).groupBy(::day).toSortedMap(nullsLast(compareBy<LocalDate> { it })).forEach { (d, list) ->
+        val out = games.filter(::isFav).sortedWith(order).map { row(it, wide, zone, today) }.toMutableList()
+        val byDay = games.filterNot(::isFav).groupBy(::day)
+        // A day counts as "past" only once all its games are final; a day with live games stays on top.
+        val (past, current) = byDay.keys.partition { d -> d != null && d < today && byDay.getValue(d).all { it.state == "post" } }
+        val days = current.sortedWith(nullsLast(compareBy<LocalDate> { it })) + past.filterNotNull().sortedDescending()
+        days.forEach { d ->
             out += WidgetRow.divider(dayLabel(d, today))
-            list.sortedWith(compareBy<Game>({ if (it.state == "in") 0 else 1 }, { it.date })).forEach { out += row(it, wide, zone, today) }
+            byDay.getValue(d).sortedWith(order).forEach { out += row(it, wide, zone, today) }
         }
         return out
     }
