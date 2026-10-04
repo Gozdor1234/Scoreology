@@ -96,11 +96,13 @@ val modernPalette: ModernPalette
 val ModernLightBackground = Color(0xFFE6ECF3)
 
 /** Raised glass surface: soft shadow bottom-right, glow top-left, translucent fill, bright edge. */
-fun Modifier.neuRaised(p: ModernPalette, radius: Dp, distance: Dp = 5.dp, blur: Dp = 10.dp): Modifier = this.drawBehind {
+fun Modifier.neuRaised(p: ModernPalette, radius: Dp, distance: Dp = 5.dp, blur: Dp = 10.dp, shadows: Boolean = true): Modifier = this.drawBehind {
     val r = radius.toPx()
     val d = distance.toPx()
     val b = blur.toPx()
-    drawIntoCanvas { c ->
+    // Without shadows (a card with a team glow), only the glass fill and edges are drawn, so the
+    // white highlight doesn't wash out the glow at the top left.
+    if (shadows) drawIntoCanvas { c ->
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         paint.color = p.base.toArgb()
         paint.setShadowLayer(b, d, d, p.shade.toArgb())
@@ -175,14 +177,19 @@ fun Card(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     colors: CardColors = CardDefaults.cardColors(),
+    glow: CardGlow? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!LocalModern.current) {
-        androidx.compose.material3.Card(onClick = onClick, modifier = modifier, colors = colors, content = content)
+        val m = if (glow != null) modifier.teamGlow(glow.top, glow.bottom, 12.dp) else modifier
+        androidx.compose.material3.Card(onClick = onClick, modifier = m, colors = colors, content = content)
     } else {
-        ModernCard(modifier, colors, onClick, content)
+        ModernCard(modifier, colors, onClick, content, glow)
     }
 }
+
+/** Team colors for a card's outer glow: [top] along the upper edge, [bottom] along the lower edge. */
+data class CardGlow(val top: Color?, val bottom: Color?)
 
 @Composable
 private fun ModernCard(
@@ -190,6 +197,7 @@ private fun ModernCard(
     colors: CardColors,
     onClick: (() -> Unit)?,
     content: @Composable ColumnScope.() -> Unit,
+    glow: CardGlow? = null,
 ) {
     val p = modernPalette
     val shape = RoundedCornerShape(20.dp)
@@ -197,7 +205,8 @@ private fun ModernCard(
     val tint = colors.containerColor.takeIf { it != default }
     Column(
         modifier
-            .neuRaised(p, 20.dp)
+            .then(if (glow != null) Modifier.teamGlow(glow.top, glow.bottom, 20.dp) else Modifier)
+            .neuRaised(p, 20.dp, shadows = glow == null || (glow.top == null && glow.bottom == null))
             .clip(shape)
             .then(if (tint != null) Modifier.background(tint.copy(alpha = 0.35f)) else Modifier)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
@@ -325,7 +334,6 @@ fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp,
     return this.drawBehind {
         val r = radius.toPx()
         val grow = 1.dp.toPx()
-        val drop = 1.25.dp.toPx()
         drawIntoCanvas { c ->
             val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                 shader = android.graphics.LinearGradient(
@@ -336,7 +344,7 @@ fun Modifier.teamGlow(top: Color?, bottom: Color?, radius: Dp, blur: Dp = 10.dp,
                 )
                 maskFilter = android.graphics.BlurMaskFilter(blur.toPx(), android.graphics.BlurMaskFilter.Blur.NORMAL)
             }
-            c.nativeCanvas.drawRoundRect(-grow, drop, size.width + grow, size.height + drop, r, r, paint)
+            c.nativeCanvas.drawRoundRect(-grow, -grow, size.width + grow, size.height + grow, r, r, paint)
         }
     }
 }

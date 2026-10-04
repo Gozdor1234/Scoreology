@@ -421,6 +421,26 @@ fun teamColor(hex: String, altHex: String, darkUi: Boolean): Color? {
     return pick?.let { Color(it) }
 }
 
+/**
+ * A team color bright enough to show as a glow. Near-black brand colors (navy, dark teal) would
+ * blur into a plain gray shadow, so a dark main color gives way to a vivid alternate (Texans red),
+ * or, if the alternate is gray or silver, is lifted to a brighter shade of the same hue (Cowboys blue).
+ */
+fun glowColor(hex: String, altHex: String, darkUi: Boolean): Color? {
+    val main = ColorMath.parseHex(hex)
+    val alt = ColorMath.parseHex(altHex)
+    fun hsv(c: Int) = ColorMath.argbToHsv(c)
+    var pick = main ?: alt ?: return null
+    if (!darkUi && ColorMath.luminance(pick) > 0.85 && alt != null) pick = alt
+    val h = hsv(pick)
+    if (h[2] < 0.5f) {
+        val a = alt?.let(::hsv)
+        pick = if (a != null && a[1] > 0.45f && a[2] > 0.35f && ColorMath.luminance(alt) < 0.85) alt
+        else ColorMath.hsvToArgb(h[0], h[1], maxOf(h[2], if (darkUi) 0.75f else 0.62f))
+    }
+    return Color(pick)
+}
+
 /** Soft team-color fades behind each side of a matchup header (away on the left, home on the right). */
 fun matchupBrush(away: Color?, home: Color?): Brush = Brush.horizontalGradient(
     0f to (away?.copy(alpha = 0.55f) ?: Color.Transparent),
