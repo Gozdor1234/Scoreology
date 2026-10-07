@@ -35,6 +35,24 @@
                 android:resource="@xml/scores_widget_info" />
         </receiver>
 
+        <!-- Compact 2x2 "Mini Scores" widget -->
+        <receiver
+            android:name=".MiniScoresWidget"
+            android:exported="false"
+            android:label="@string/mini_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/mini_scores_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".MiniScoresWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
         <service
             android:name=".ScoresWidgetService"
             android:exported="false"

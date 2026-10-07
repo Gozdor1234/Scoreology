@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One game in the Mini Scores widget: two team lines with scores, status at the right. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mini_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="18dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/mini_away_logo"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:scaleType="fitCenter" />
+
+            <TextView
+                android:id="@+id/mini_away_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:singleLine="true"
+                android:textColor="@color/widget_text"
+                android:textSize="12sp" />
+
+            <ImageView
+                android:id="@+id/mini_away_ball"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_football"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/mini_away_score"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:singleLine="true"
+                android:textColor="@color/widget_text"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="18dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/mini_home_logo"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:scaleType="fitCenter" />
+
+            <TextView
+                android:id="@+id/mini_home_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:singleLine="true"
+                android:textColor="@color/widget_text"
+                android:textSize="12sp" />
+
+            <ImageView
+                android:id="@+id/mini_home_ball"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_football"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/mini_home_score"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:singleLine="true"
+                android:textColor="@color/widget_text"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/mini_status"
+        android:layout_width="50dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:gravity="end|center_vertical"
+        android:lineSpacingExtra="1dp"
+        android:maxLines="2"
+        android:textColor="@color/widget_subtext"
+        android:textSize="10sp" />
+</LinearLayout>

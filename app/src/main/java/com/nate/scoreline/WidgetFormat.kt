@@ -63,21 +63,32 @@ object WidgetFormat {
      * them earlier days, most recent day first. Within a day: live, then upcoming, then finals,
      * with finals in start order so the most recently finished game sits at the bottom.
      */
-    fun rows(games: List<Game>, favIds: Set<String>, wide: Boolean, zone: ZoneId, today: LocalDate): List<WidgetRow> {
+    fun rows(games: List<Game>, favIds: Set<String>, wide: Boolean, zone: ZoneId, today: LocalDate): List<WidgetRow> =
+        items(games, favIds, zone, today).map { (header, g) -> if (header != null) WidgetRow.divider(header) else row(g!!, wide, zone, today) }
+
+    /** The widget order as (day label, null) divider entries and (null, game) entries; shared by both widgets. */
+    fun items(games: List<Game>, favIds: Set<String>, zone: ZoneId, today: LocalDate): List<Pair<String?, Game?>> {
         val stateOrder = mapOf("in" to 0, "pre" to 1, "post" to 2)
         val order = compareBy<Game>({ stateOrder[it.state] ?: 3 }, { it.date })
         fun isFav(g: Game) = g.home.id in favIds || g.away.id in favIds
         fun day(g: Game) = try { OffsetDateTime.parse(g.date).atZoneSameInstant(zone).toLocalDate() } catch (e: Exception) { null }
-        val out = games.filter(::isFav).sortedWith(order).map { row(it, wide, zone, today) }.toMutableList()
+        val out = games.filter(::isFav).sortedWith(order).map<Game, Pair<String?, Game?>> { null to it }.toMutableList()
         val byDay = games.filterNot(::isFav).groupBy(::day)
         // A day counts as "past" only once all its games are final; a day with live games stays on top.
         val (past, current) = byDay.keys.partition { d -> d != null && d < today && byDay.getValue(d).all { it.state == "post" } }
         val days = current.sortedWith(nullsLast(compareBy<LocalDate> { it })) + past.filterNotNull().sortedDescending()
         days.forEach { d ->
-            out += WidgetRow.divider(dayLabel(d, today))
-            byDay.getValue(d).sortedWith(order).forEach { out += row(it, wide, zone, today) }
+            out += dayLabel(d, today) to null
+            byDay.getValue(d).sortedWith(order).forEach { out += null to it }
         }
         return out
+    }
+
+    /** Kickoff time only ("8:20 PM"), for the mini widget where day dividers already give the date. */
+    fun time(iso: String, zone: ZoneId): String = try {
+        OffsetDateTime.parse(iso).atZoneSameInstant(zone).format(timeFmt)
+    } catch (e: Exception) {
+        ""
     }
 
     private fun row(g: Game, wide: Boolean, zone: ZoneId, today: LocalDate): WidgetRow = run {

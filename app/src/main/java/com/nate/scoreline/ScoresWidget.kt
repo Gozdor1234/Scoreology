@@ -38,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /** Home-screen scores widget. Each placed widget keeps its own league and week. */
-class ScoresWidget : AppWidgetProvider() {
+open class ScoresWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { WidgetCtl.render(context, it) }
@@ -47,7 +47,8 @@ class ScoresWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) = WidgetCtl.schedule(context)
 
-    override fun onDisabled(context: Context) = WidgetCtl.cancel(context)
+    // Background refresh stops only when no Scoreology widget of either size is left.
+    override fun onDisabled(context: Context) { if (WidgetCtl.allIds(context).isEmpty()) WidgetCtl.cancel(context) }
 
     override fun onDeleted(context: Context, ids: IntArray) = ids.forEach { WidgetStore.clear(context, it) }
 
@@ -148,8 +149,15 @@ object WidgetCtl {
     private const val WORK = "widget-refresh"
     private val clock = DateTimeFormatter.ofPattern("h:mm")
 
-    fun allIds(c: Context): IntArray =
-        AppWidgetManager.getInstance(c).getAppWidgetIds(ComponentName(c, ScoresWidget::class.java))
+    fun allIds(c: Context): IntArray {
+        val m = AppWidgetManager.getInstance(c)
+        return m.getAppWidgetIds(ComponentName(c, ScoresWidget::class.java)) + miniIds(c)
+    }
+
+    fun miniIds(c: Context): IntArray =
+        AppWidgetManager.getInstance(c).getAppWidgetIds(ComponentName(c, MiniScoresWidget::class.java))
+
+    fun isMini(c: Context, id: Int) = id in miniIds(c)
 
     /** Loads this widget's games (network). Uses the app's college view (Top 25 / All FBS / conference). */
     suspend fun fetch(c: Context, id: Int): WidgetData {
@@ -199,6 +207,7 @@ object WidgetCtl {
 
     /** Draws the header/footer and (re)attaches the game list. */
     fun render(c: Context, id: Int) {
+        if (isMini(c, id)) return renderMini(c, id)
         val league = WidgetStore.league(c, id)
         val data = WidgetCache.get(id)
         val v = RemoteViews(c.packageName, R.layout.widget_scores)
@@ -256,6 +265,47 @@ object WidgetCtl {
         v.setOnClickPendingIntent(R.id.widget_next, broadcast(c, id, ScoresWidget.ACTION_NEXT, 4))
         v.setOnClickPendingIntent(R.id.widget_week, broadcast(c, id, ScoresWidget.ACTION_CURRENT, 5))
 
+        AppWidgetManager.getInstance(c).updateAppWidget(id, v)
+    }
+
+    /** Mini Scores: league toggle, refresh, and the game list. Tapping the logo opens the app. */
+    private fun renderMini(c: Context, id: Int) {
+        val league = WidgetStore.league(c, id)
+        val data = WidgetCache.get(id)
+        val v = RemoteViews(c.packageName, R.layout.widget_mini)
+        v.setTextViewText(R.id.widget_league, "${league.label}  ⇄")
+        val svc = Intent(c, MiniScoresWidgetService::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+        svc.data = Uri.parse(svc.toUri(Intent.URI_INTENT_SCHEME))
+        @Suppress("DEPRECATION")
+        v.setRemoteAdapter(R.id.widget_list, svc)
+        v.setEmptyView(R.id.widget_list, R.id.widget_empty)
+        v.setTextViewText(
+            R.id.widget_empty,
+            when {
+                data != null -> "No games"
+                WidgetStore.failed(c, id) -> "Couldn't load.\nTap refresh."
+                else -> "Loading…"
+            },
+        )
+        val mutable = if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+        v.setPendingIntentTemplate(
+            R.id.widget_list,
+            PendingIntent.getActivity(
+                c, 100_000 + id,
+                Intent(c, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                mutable or PendingIntent.FLAG_UPDATE_CURRENT,
+            ),
+        )
+        v.setOnClickPendingIntent(
+            R.id.widget_logo,
+            PendingIntent.getActivity(
+                c, 200_000 + id,
+                Intent(c, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            ),
+        )
+        v.setOnClickPendingIntent(R.id.widget_refresh, broadcast(c, id, ScoresWidget.ACTION_REFRESH, 1))
+        v.setOnClickPendingIntent(R.id.widget_league, broadcast(c, id, ScoresWidget.ACTION_LEAGUE, 2))
         AppWidgetManager.getInstance(c).updateAppWidget(id, v)
     }
 
@@ -397,4 +447,83 @@ object LogoCache {
             null
         }
     }
+}
+
+
+/** Compact 2x2 "Mini Scores" widget. Shares settings, loading and refresh with [ScoresWidget]. */
+class MiniScoresWidget : ScoresWidget()
+
+class MiniScoresWidgetService : RemoteViewsService() {
+    override fun onGetViewFactory(intent: Intent): RemoteViewsFactory =
+        MiniScoresWidgetFactory(
+            applicationContext,
+            intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID),
+        )
+}
+
+/** One game per row: two team lines (logo, abbreviation, score) and the status on the right. */
+class MiniScoresWidgetFactory(private val c: Context, private val id: Int) : RemoteViewsService.RemoteViewsFactory {
+    private var items: List<Pair<String?, Game?>> = emptyList()
+    private var league: League = League.NFL
+
+    override fun onCreate() {}
+
+    override fun onDataSetChanged() {
+        val data = WidgetCache.get(id)
+            ?: runBlocking { runCatching { withTimeoutOrNull(10_000) { WidgetCtl.fetch(c, id) } }.getOrNull() }
+        if (data == null) {
+            items = emptyList()
+            return
+        }
+        league = data.league
+        items = WidgetFormat.items(data.games, Favorites.get(c).favTeamIds(data.league), ZoneId.systemDefault(), LocalDate.now())
+    }
+
+    override fun onDestroy() {}
+    override fun getCount(): Int = items.size
+
+    override fun getViewAt(position: Int): RemoteViews {
+        val (header, g) = items.getOrNull(position) ?: return RemoteViews(c.packageName, R.layout.widget_mini_row)
+        if (header != null || g == null) {
+            return RemoteViews(c.packageName, R.layout.widget_mini_day).apply { setTextViewText(R.id.day_label, header.orEmpty()) }
+        }
+        val v = RemoteViews(c.packageName, R.layout.widget_mini_row)
+        val text = c.getColor(R.color.widget_text)
+        val sub = c.getColor(R.color.widget_subtext)
+        val live = c.getColor(R.color.widget_live)
+        val final = g.state == "post"
+
+        fun team(t: TeamSide, logo: Int, name: Int, score: Int, ball: Int) {
+            v.setTextViewText(name, WidgetFormat.name(t, wide = false))
+            v.setTextViewText(score, if (g.state == "pre") "" else t.score)
+            val dim = final && !t.winner && (g.away.winner || g.home.winner)
+            v.setTextColor(name, if (dim) sub else text)
+            v.setTextColor(score, if (dim) sub else text)
+            v.setViewVisibility(ball, if (g.isLive && g.possessionTeamId != null && g.possessionTeamId == t.id) View.VISIBLE else View.GONE)
+            val bmp = LogoCache.get(c, t.logo)
+            if (bmp != null) v.setImageViewBitmap(logo, bmp) else v.setImageViewResource(logo, 0)
+        }
+        team(g.away, R.id.mini_away_logo, R.id.mini_away_name, R.id.mini_away_score, R.id.mini_away_ball)
+        team(g.home, R.id.mini_home_logo, R.id.mini_home_name, R.id.mini_home_score, R.id.mini_home_ball)
+
+        val status = when (g.state) {
+            "pre" -> listOf(WidgetFormat.time(g.date, ZoneId.systemDefault()).ifEmpty { g.detail }, g.broadcast)
+                .filter { it.isNotBlank() }.joinToString("\n")
+            "in" -> g.detail.replace(" - ", "\n")
+            else -> g.detail
+        }
+        v.setTextViewText(R.id.mini_status, status)
+        v.setTextColor(R.id.mini_status, if (g.isLive) live else sub)
+
+        v.setOnClickFillInIntent(
+            R.id.mini_root,
+            Intent().putExtra(ScoresWidget.EXTRA_LEAGUE, league.name).putExtra(ScoresWidget.EXTRA_EVENT, g.id),
+        )
+        return v
+    }
+
+    override fun getLoadingView(): RemoteViews? = null
+    override fun getViewTypeCount(): Int = 2
+    override fun getItemId(position: Int): Long = position.toLong()
+    override fun hasStableIds(): Boolean = false
 }

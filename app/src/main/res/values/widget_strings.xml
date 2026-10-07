@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_description">Live NFL and college football scores. Tap the league name to switch.</string>
+    <string name="mini_widget_label">Mini Scores</string>
+    <string name="mini_widget_description">A compact 2x2 scoreboard. Tap the league name to switch.</string>
 </resources>
