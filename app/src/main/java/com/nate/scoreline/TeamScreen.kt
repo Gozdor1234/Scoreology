@@ -86,7 +86,13 @@ fun Headshot(url: String, size: Dp) {
         contentAlignment = Alignment.Center,
     ) {
         if (url.isNotBlank()) {
-            AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size))
+            AsyncImage(
+                model = rememberCrispRequest(url, size, fill = true),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                modifier = Modifier.size(size),
+            )
         }
     }
 }

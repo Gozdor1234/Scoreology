@@ -521,13 +521,15 @@ private fun LeagueLogo(l: League) {
         League.NFL -> "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png"
         League.CFB -> "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/NCAA_logo.svg/120px-NCAA_logo.svg.png"
     }
-    val request = remember(url) {
-        ImageRequest.Builder(ctx)
-            .data(url)
-            .setHeader("User-Agent", "Scoreology/1.0 (Android app; https://github.com/Gozdor1234/Scoreology)")
-            .build()
+    val request = rememberCrispRequest(url, 22.dp) {
+        setHeader("User-Agent", "Scoreology/1.0 (Android app; https://github.com/Gozdor1234/Scoreology)")
     }
-    AsyncImage(model = request, contentDescription = null, modifier = Modifier.size(22.dp))
+    AsyncImage(
+        model = request,
+        contentDescription = null,
+        filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+        modifier = Modifier.size(22.dp),
+    )
 }
 
 /** "Sun, Sep 13" in local time, or "" if the date can't be read. */

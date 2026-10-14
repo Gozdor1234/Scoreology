@@ -471,7 +471,7 @@ private fun DriverPhoto(url: String, size: androidx.compose.ui.unit.Dp, onFail: 
     ) {
         if (url.isNotBlank()) {
             AsyncImage(
-                model = if (failed || hi == url) url else hi,
+                model = rememberCrispRequest(if (failed || hi == url) url else hi, size, fill = true),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopCenter,

@@ -294,7 +294,12 @@ fun Message(text: String, action: String? = null, onAction: () -> Unit = {}) {
 
 @Composable
 fun Logo(url: String, size: Dp = 28.dp) {
-    if (url.isBlank()) Box(Modifier.size(size)) else AsyncImage(model = url, contentDescription = null, modifier = Modifier.size(size))
+    if (url.isBlank()) Box(Modifier.size(size)) else AsyncImage(
+        model = rememberCrispRequest(url, size),
+        contentDescription = null,
+        filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+        modifier = Modifier.size(size),
+    )
 }
 
 @Composable
@@ -350,15 +355,13 @@ fun TeamBadge(team: String, size: Dp = 26.dp) {
     Box(Modifier.width(size * 1.4f).height(size), contentAlignment = Alignment.Center) {
         if (attempt < urls.size) {
             val checkShade = darkUi && !white && F1Teams.darkLogo[team] == null
-            val request = remember(urls, attempt, checkShade) {
-                coil.request.ImageRequest.Builder(ctx).data(urls[attempt])
-                    .apply { if (checkShade) allowHardware(false) }
-                    .build()
-            }
+            // Smooth shrink to the box height (logos are wide, so the long side gets 1.4x).
+            val request = rememberCrispRequest(urls[attempt], size * 1.4f)
             AsyncImage(
                 model = request,
                 contentDescription = team,
                 contentScale = ContentScale.Fit,
+                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                 modifier = Modifier.fillMaxSize(),
                 onError = { attempt++ },
                 onSuccess = { st ->

@@ -421,7 +421,7 @@ object LogoCache {
     fun get(c: Context, url: String): Bitmap? {
         if (url.isBlank()) return null
         mem.get(url)?.let { return it }
-        val file = File(File(c.cacheDir, "logos").apply { mkdirs() }, "${url.hashCode().toUInt()}.png")
+        val file = File(File(c.cacheDir, "logos2").apply { mkdirs() }, "${url.hashCode().toUInt()}.png")
         if (file.exists()) {
             BitmapFactory.decodeFile(file.path)?.let { mem.put(url, it); return it }
         }
@@ -433,13 +433,11 @@ object LogoCache {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             var sample = 1
-            while (bounds.outWidth / (sample * 2) >= PX && bounds.outHeight / (sample * 2) >= PX) sample *= 2
+            // Quick decode only down to 4x the target (it skips pixels), then shrink smoothly.
+            while (bounds.outWidth / (sample * 2) >= PX * 4 && bounds.outHeight / (sample * 2) >= PX * 4) sample *= 2
             val raw = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
                 ?: return null
-            val scale = PX.toFloat() / maxOf(raw.width, raw.height)
-            val bmp = if (scale < 1f) {
-                Bitmap.createScaledBitmap(raw, maxOf(1, (raw.width * scale).toInt()), maxOf(1, (raw.height * scale).toInt()), true)
-            } else raw
+            val bmp = SmoothDownscale.downscale(raw, PX, fill = false)
             file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
             mem.put(url, bmp)
             bmp
