@@ -32,20 +32,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-private val standingTabs = listOf("NFL", "College", "F1 Drivers", "F1 Teams")
+private val standingTabs = listOf("NFL", "College", "NHL", "F1 Drivers", "F1 Teams")
 
 @Composable
 fun StandingsScreen(modifier: Modifier, open: (Route) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(modifier.fillMaxSize()) {
-        // No search button here: the four tabs need the full width to all fit on screen.
-        TabRow(selectedTabIndex = tab) {
+        // No search button here, so the tabs get the full width; they scroll sideways if they don't all fit.
+        ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
             standingTabs.forEachIndexed { i, s -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(s, maxLines = 1, softWrap = false) }) }
         }
         when (tab) {
             0 -> TeamStandings(League.NFL, open)
             1 -> TeamStandings(League.CFB, open)
-            2 -> DriverStandings(open)
+            2 -> NhlStandingsView(open)
+            3 -> DriverStandings(open)
             else -> ConstructorStandings(open)
         }
     }

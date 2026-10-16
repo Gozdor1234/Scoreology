@@ -8,7 +8,15 @@ import org.json.JSONObject
 enum class League(val label: String, val path: String, val defaultGroup: String?, val regularWeeks: Int) {
     NFL("NFL", "football/nfl", null, 18),
     // groups=80 = all FBS games; without it ESPN only returns a curated subset.
-    CFB("College", "football/college-football", Conferences.FBS, 16);
+    CFB("College", "football/college-football", Conferences.FBS, 16),
+    NHL("NHL", "hockey/nhl", null, 0);
+
+    val isFootball get() = this != NHL
+    val isHockey get() = this == NHL
+
+    companion object {
+        val football = listOf(NFL, CFB)
+    }
 }
 
 /** ESPN group ids for FBS conferences (same ids in scoreboard and standings). */
@@ -165,6 +173,10 @@ object Espn {
 
     suspend fun scoreboard(league: League, week: WeekInfo? = null, group: String? = league.defaultGroup): Scoreboard =
         parseScoreboard(Net.getJson(scoreboardUrl(league, week, group)), league)
+
+    /** One day's games (hockey and other daily sports). [yyyymmdd] like "20261016". */
+    suspend fun scoreboardOn(league: League, yyyymmdd: String): Scoreboard =
+        parseScoreboard(Net.getJson("$SITE/${league.path}/scoreboard?dates=$yyyymmdd&limit=100"), league)
 
     suspend fun summary(league: League, eventId: String): GameDetail =
         parseSummary(Net.getJson("$SITE/${league.path}/summary?event=$eventId"), league)
@@ -325,19 +337,72 @@ object Espn {
             .filter { it.str("id").isNotEmpty() && it.str("color").isNotEmpty() }
             .associate { it.str("id") to it.str("color") }
 
-        val scoring = root.arr("scoringPlays").objects().map { p ->
+        val hockeyPlays = if (league == League.NHL) root.arr("plays").objects() else emptyList()
+        val scoringSource = root.arr("scoringPlays").objects().ifEmpty { hockeyPlays.filter { it.optBoolean("scoringPlay", false) } }
+        val abbrById = listOfNotNull(game?.away, game?.home).associate { it.id to it.abbr }
+        val scoring = scoringSource.map { p ->
             val team = p.obj("team")
             ScoringPlay(
                 period = p.obj("period")?.optInt("number", 0) ?: 0,
                 clock = p.obj("clock")?.str("displayValue") ?: "",
-                team = team?.str("abbreviation")?.ifEmpty { null } ?: team?.str("displayName") ?: "",
+                team = team?.str("abbreviation")?.ifEmpty { null } ?: abbrById[team?.str("id")]
+                    ?: team?.str("displayName") ?: "",
                 text = p.str("text"),
                 awayScore = p.numText("awayScore"),
                 homeScore = p.numText("homeScore"),
             )
         }
-        return GameDetail(game, teamStats, players, scoring, parseDrives(root), teamColors = teamColors)
+        val drives = if (league == League.NHL) hockeyPeriods(hockeyPlays, abbrById) else parseDrives(root)
+        return GameDetail(game, teamStats, players, scoring, drives, teamColors = teamColors)
     }
+
+    /**
+     * Hockey play-by-play grouped by period (shown like football drives), newest period and
+     * newest play first. Hockey clocks count down from 20:00, so a smaller clock is later.
+     */
+    fun hockeyPeriods(plays: List<JSONObject>, abbrById: Map<String, String>): List<Drive> {
+        fun secs(clock: String): Int {
+            val p = clock.split(':')
+            return if (p.size == 2) (p[0].toIntOrNull() ?: 0) * 60 + (p[1].toIntOrNull() ?: 0) else 0
+        }
+        val parsed = plays.mapIndexed { i, p ->
+            val team = p.obj("team")?.str("id").orEmpty()
+            i to Play(
+                id = p.str("id").ifEmpty { "p$i" },
+                period = p.obj("period")?.optInt("number", 0) ?: 0,
+                clock = p.obj("clock")?.str("displayValue") ?: "",
+                downDistance = abbrById[team].orEmpty(),
+                text = p.str("text"),
+                type = p.obj("type")?.str("text") ?: "",
+                awayScore = p.numText("awayScore"),
+                homeScore = p.numText("homeScore"),
+                scoring = p.optBoolean("scoringPlay", false),
+            )
+        }.filter { it.second.text.isNotBlank() && it.second.period > 0 }
+        return parsed.groupBy { it.second.period }.toSortedMap(compareByDescending { it }).map { (period, list) ->
+            val ordered = list.sortedWith(compareBy<Pair<Int, Play>>({ secs(it.second.clock) }, { -it.first })).map { it.second }
+            val goals = ordered.count { it.scoring }
+            Drive(
+                id = "period-$period",
+                team = hockeyPeriodName(period),
+                logo = "",
+                summary = "${ordered.size} plays" + if (goals > 0) "  ·  $goals goal${if (goals == 1) "" else "s"}" else "",
+                result = "",
+                isScore = false,
+                inProgress = false,
+                plays = ordered,
+            )
+        }
+    }
+
+    fun hockeyPeriodName(p: Int): String = when (p) {
+        1 -> "1st Period"
+        2 -> "2nd Period"
+        3 -> "3rd Period"
+        4 -> "Overtime"
+        else -> "${p - 3}OT"
+    }
+
 
     /** Seconds of game time elapsed at a play, for ordering (15-minute quarters). */
     private fun elapsed(period: Int, clock: String): Int {
@@ -413,6 +478,7 @@ object Espn {
     fun fallbackLogo(league: League?, id: String, abbr: String): String = when {
         league == League.NFL && abbr.isNotEmpty() -> "https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.lowercase()}.png"
         league == League.CFB && id.isNotEmpty() -> "https://a.espncdn.com/i/teamlogos/ncaa/500/$id.png"
+        league == League.NHL && abbr.isNotEmpty() -> "https://a.espncdn.com/i/teamlogos/nhl/500/${abbr.lowercase()}.png"
         else -> ""
     }
 

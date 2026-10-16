@@ -41,8 +41,12 @@ class Favorites private constructor(context: Context) {
     /** Game-screen tab order: 0 Team stats, 1 Players, 2 Scoring, 3 Play-by-play. */
     var tabOrder by mutableStateOf(parseOrder(prefs.getString(KEY_TAB_ORDER, null), 4))
         private set
-    /** Bottom-bar order: 0 Scores, 1 F1, 2 Golf, 3 Standings, 4 Settings. */
-    var navOrder by mutableStateOf(parseOrder(prefs.getString(KEY_NAV_ORDER, null), 5))
+    /**
+     * Tabs shown on the bottom bar, in order (ids index [navTabs]: 0 Scores, 1 F1, 2 Golf,
+     * 3 Standings, 4 Settings, 5 NHL). Tabs left out are hidden but still reachable from Settings.
+     * Settings itself is always shown, so the bar can always be changed back.
+     */
+    var navOrder by mutableStateOf(readNavTabs())
         private set
     /** College scores view: "top25", "fbs", or a conference group id. */
     var cfbView by mutableStateOf(prefs.getString(KEY_CFB_VIEW, "fbs") ?: "fbs")
@@ -109,7 +113,28 @@ class Favorites private constructor(context: Context) {
     fun updateThemeMode(mode: String) { themeMode = mode; prefs.edit().putString(KEY_THEME, mode).apply() }
     fun updateMatchPhoneColors(on: Boolean) { matchPhoneColors = on; prefs.edit().putBoolean(KEY_DYNAMIC, on).apply() }
     fun updateTabOrder(order: List<Int>) { tabOrder = order; prefs.edit().putString(KEY_TAB_ORDER, order.joinToString(",")).apply() }
-    fun updateNavOrder(order: List<Int>) { navOrder = order; prefs.edit().putString(KEY_NAV_ORDER, order.joinToString(",")).apply() }
+    fun updateNavOrder(order: List<Int>) {
+        val clean = cleanNav(order) ?: return
+        navOrder = clean
+        prefs.edit().putString(KEY_NAV_TABS, clean.joinToString(",")).apply()
+    }
+
+    /** Valid bar: known ids, no repeats, Settings included, 2 to 6 tabs. */
+    private fun cleanNav(order: List<Int>): List<Int>? {
+        val ids = order.filter { it in 0 until NAV_TAB_COUNT }.distinct()
+        return if (TAB_SETTINGS_ID in ids && ids.size >= 2) ids else null
+    }
+
+    private fun readNavTabs(): List<Int> {
+        prefs.getString(KEY_NAV_TABS, null)?.let { raw ->
+            cleanNav(raw.split(',').mapNotNull { it.trim().toIntOrNull() })?.let { return it }
+        }
+        // First run with NHL: keep the old order, with NHL in Golf's spot (Golf stays in the app, just off the bar).
+        val old = parseOrder(prefs.getString(KEY_NAV_ORDER, null), 5)
+        val migrated = old.map { if (it == 2) 5 else it }
+        prefs.edit().putString(KEY_NAV_TABS, migrated.joinToString(",")).apply()
+        return migrated
+    }
     fun updateCfbView(view: String) { cfbView = view; prefs.edit().putString(KEY_CFB_VIEW, view).apply() }
     /** Pins the group, or unpins it if it's already pinned. One pin per league. */
     fun togglePin(league: League, groupId: String) {
@@ -174,6 +199,9 @@ class Favorites private constructor(context: Context) {
         private const val KEY_DYNAMIC = "match_phone_colors"
         private const val KEY_TAB_ORDER = "game_tab_order"
         private const val KEY_NAV_ORDER = "nav_order"
+        private const val KEY_NAV_TABS = "nav_tabs"
+        private const val NAV_TAB_COUNT = 6
+        private const val TAB_SETTINGS_ID = 4
         private const val KEY_CFB_VIEW = "cfb_view"
         private const val KEY_PIN_NFL = "pin_nfl"
         private const val KEY_PIN_CFB = "pin_cfb"

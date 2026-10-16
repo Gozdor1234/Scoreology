@@ -26,7 +26,7 @@ object AlertLogic {
             prevState != "post" && g.state == "post" ->
                 Alert("Final: ${g.matchup}", line(g))
             prevState == "pre" && g.state == "in" ->
-                Alert("Kickoff: ${g.matchup}", "${line(g)}  (${g.detail})")
+                Alert((if (g.league.isHockey) "Puck drop: " else "Kickoff: ") + g.matchup, "${line(g)}  (${g.detail})")
             g.state == "in" && scoreAlerts && (prevAway != g.away.score || prevHome != g.home.score) ->
                 Alert("Score: ${g.matchup}", "${line(g)}  (${g.detail})")
             else -> null

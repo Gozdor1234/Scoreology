@@ -163,6 +163,7 @@ object TeamApi {
     fun headshotFallback(league: League, id: String): String = when {
         id.isEmpty() -> ""
         league == League.NFL -> "https://a.espncdn.com/i/headshots/nfl/players/full/$id.png"
+        league == League.NHL -> "https://a.espncdn.com/i/headshots/nhl/players/full/$id.png"
         else -> "https://a.espncdn.com/i/headshots/college-football/players/full/$id.png"
     }
 
@@ -414,6 +415,8 @@ object StatMath {
                 }
                 label == "LONG" || label == "LNG" -> col.mapNotNull { num(it) }.maxOrNull()?.let { fmt(it) } ?: ""
                 label == "AVG" || label == "PCT" || label == "RTG" || label == "QBR" -> "" // recomputed below
+                // Hockey: percentages and averages are recomputed below; ice time and "year to date" columns don't add up.
+                label.endsWith("%") || label == "GAA" || label.contains("TOI") || label.startsWith("YTD") -> ""
                 else -> col.mapNotNull { num(it) }.let { if (it.isEmpty()) "" else fmt(it.sum()) }
             }
         }
@@ -424,6 +427,16 @@ object StatMath {
             val yds = at("YDS")?.let { num(out[it]) }
             val first = out.firstOrNull()?.let { f -> slash.find(f)?.groupValues?.get(2)?.toDoubleOrNull() ?: num(f) }
             out[a] = if (yds != null && first != null && first > 0) "%.1f".format(yds / first) else ""
+        }
+        at("FO%")?.let { p ->
+            val w = at("FW")?.let { num(out[it]) }
+            val l = at("FL")?.let { num(out[it]) }
+            out[p] = if (w != null && l != null && w + l > 0) "%.1f".format(w * 100 / (w + l)) else ""
+        }
+        at("SV%")?.let { p ->
+            val sv = at("SV")?.let { num(out[it]) }
+            val sa = at("SA")?.let { num(out[it]) }
+            out[p] = if (sv != null && sa != null && sa > 0) "%.3f".format(sv / sa) else ""
         }
         at("PCT")?.let { p ->
             val fg = at("FG")?.let { slash.find(out[it])?.groupValues }
@@ -495,6 +508,9 @@ object StatMath {
                 val accs = players[key].orEmpty()
                 val built = accs.map { (id, acc) -> Triple(id, acc, combine(labels, acc.lines, nfl)) }
                 val sortCol = labels.indexOfFirst { it.equals("YDS", true) }.takeIf { it >= 0 }
+                    ?: labels.indexOfFirst { it.equals("PTS", true) }.takeIf { it >= 0 }
+                    ?: labels.indexOfFirst { it.equals("SV", true) }.takeIf { it >= 0 }
+                    ?: labels.indexOfFirst { it.equals("G", true) }.takeIf { it >= 0 }
                     ?: labels.indexOfFirst { it.equals("TOT", true) }.takeIf { it >= 0 } ?: 0
                 val sorted = built.sortedByDescending { (_, _, line) ->
                     line.getOrNull(sortCol)?.let { c -> slash.find(c)?.groupValues?.get(1)?.toDoubleOrNull() ?: num(c) } ?: -1.0

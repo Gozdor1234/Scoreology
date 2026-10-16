@@ -54,7 +54,12 @@ import androidx.compose.ui.unit.dp
 
 private val sectionLabels = listOf("Team stats", "Players", "Scoring", "Play-by-play")
 
-private fun periodLabel(p: Int) = when {
+private fun periodLabel(p: Int, hockey: Boolean = false) = if (hockey) when {
+    p in 1..3 -> "P$p"
+    p == 4 -> "OT"
+    p > 4 -> "SO"
+    else -> ""
+} else when {
     p in 1..4 -> "Q$p"
     p == 5 -> "OT"
     p > 5 -> "${p - 4}OT"
@@ -211,7 +216,7 @@ private fun GameHeader(
                 style = MaterialTheme.typography.labelLarge,
                 textAlign = TextAlign.Center,
             )
-            if (g.state == "pre" || g.isLive) {
+            if ((g.state == "pre" || g.isLive) && g.league.isFootball) {
                 GameWeatherTag(
                     g, compact = false,
                     style = MaterialTheme.typography.labelLarge,
@@ -261,7 +266,7 @@ private fun HeaderTeam(t: TeamSide, league: League, fav: Favorites, modifier: Mo
 @Composable
 private fun Linescore(g: Game) {
     val n = maxOf(g.away.linescores.size, g.home.linescores.size)
-    val heads = (1..n).map { periodLabel(it) } + "T"
+    val heads = (1..n).map { periodLabel(it, g.league.isHockey) } + "T"
     // Full-bleed band under the header: square corners, edge to edge.
     Surface(
         color = CardDefaults.cardColors().containerColor,
@@ -365,7 +370,7 @@ private fun ScoringRow(p: ScoringPlay, g: Game?) {
     Column {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.width(64.dp)) {
-                Text(periodLabel(p.period), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Text(periodLabel(p.period, g?.league?.isHockey == true), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                 Text(p.clock, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(Modifier.weight(1f)) {
@@ -420,7 +425,7 @@ private fun PlayRow(p: Play, g: Game?) {
     Column {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.width(64.dp)) {
-                Text(periodLabel(p.period), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Text(periodLabel(p.period, g?.league?.isHockey == true), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                 Text(p.clock, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(Modifier.weight(1f)) {

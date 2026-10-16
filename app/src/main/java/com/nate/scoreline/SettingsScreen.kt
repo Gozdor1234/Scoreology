@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -123,8 +125,13 @@ fun SettingsScreen(modifier: Modifier, open: (Route) -> Unit) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { open(Route.TeamPicker(League.NFL)) }) { Icon(Icons.Filled.Add, null); Text(" NFL") }
                 OutlinedButton(onClick = { open(Route.TeamPicker(League.CFB)) }) { Icon(Icons.Filled.Add, null); Text(" College") }
+                OutlinedButton(onClick = { open(Route.TeamPicker(League.NHL)) }) { Icon(Icons.Filled.Add, null); Text(" NHL") }
             }
         }
+
+        item { SectionHeader("Bottom bar") }
+        item { Hint("Turn sections on or off and use the arrows to set their order. Sections that are off stay in the app: tap Open to visit one anytime.") }
+        item { BottomBarEditor(fav, open) }
 
         item { SectionHeader("Favorite F1 drivers") }
         val drivers = fav.driverNames.sorted()
@@ -458,5 +465,72 @@ private fun OddsKeySettings(fav: Favorites) {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
             }
         }
+    }
+}
+
+
+/** Settings > Bottom bar: shown tabs in order (arrows to move, switch to hide), then hidden ones. */
+@Composable
+private fun BottomBarEditor(fav: Favorites, open: (Route) -> Unit) {
+    val shown = fav.navOrder
+    val hidden = navTabs.indices.filter { it !in shown }
+    Column {
+        shown.forEachIndexed { i, id ->
+            BarTabRow(
+                id = id,
+                on = true,
+                // Settings always stays on the bar, and the bar keeps at least one other section.
+                canToggle = id != TAB_SETTINGS && shown.size > 2,
+                onToggle = { fav.updateNavOrder(shown - id) },
+                onUp = if (i > 0) { { fav.updateNavOrder(shown.toMutableList().apply { add(i - 1, removeAt(i)) }) } } else null,
+                onDown = if (i < shown.lastIndex) { { fav.updateNavOrder(shown.toMutableList().apply { add(i + 1, removeAt(i)) }) } } else null,
+                onOpen = null,
+            )
+        }
+        hidden.forEach { id ->
+            BarTabRow(
+                id = id,
+                on = false,
+                canToggle = true,
+                // Added just before Settings when Settings is last, otherwise at the end.
+                onToggle = {
+                    val at = if (shown.lastOrNull() == TAB_SETTINGS) shown.lastIndex else shown.size
+                    fav.updateNavOrder(shown.toMutableList().apply { add(at, id) })
+                },
+                onUp = null,
+                onDown = null,
+                onOpen = { open(Route.Section(id)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BarTabRow(
+    id: Int,
+    on: Boolean,
+    canToggle: Boolean,
+    onToggle: () -> Unit,
+    onUp: (() -> Unit)?,
+    onDown: (() -> Unit)?,
+    onOpen: (() -> Unit)?,
+) {
+    val t = navTabs[id]
+    val tint = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (t.icon != null) Icon(t.icon, contentDescription = null, tint = tint)
+        else Icon(androidx.compose.ui.res.painterResource(t.drawable), contentDescription = null, tint = tint)
+        Spacer(Modifier.width(14.dp))
+        Text(t.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = tint)
+        if (onOpen != null) TextButton(onClick = onOpen) { Text("Open") }
+        if (on) {
+            IconButton(onClick = { onUp?.invoke() }, enabled = onUp != null) {
+                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move ${t.label} up")
+            }
+            IconButton(onClick = { onDown?.invoke() }, enabled = onDown != null) {
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move ${t.label} down")
+            }
+        }
+        Switch(checked = on, onCheckedChange = { onToggle() }, enabled = canToggle)
     }
 }

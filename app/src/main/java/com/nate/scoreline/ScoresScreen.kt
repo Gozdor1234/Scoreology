@@ -132,8 +132,8 @@ fun ScoresScreen(modifier: Modifier, open: (Route) -> Unit) {
 
     Column(modifier.fillMaxSize()) {
         SearchTabs(open) {
-            TabRow(selectedTabIndex = league.ordinal) {
-                League.entries.forEach { l ->
+            TabRow(selectedTabIndex = League.football.indexOf(league).coerceAtLeast(0)) {
+                League.football.forEach { l ->
                     Tab(
                         selected = l == league,
                         onClick = { league = l },
@@ -291,7 +291,7 @@ private fun LazyListScope.gameItems(games: List<Game>, twoCol: Boolean, zoom: Fl
  * subtle date divider: live and upcoming days first, then results with the most recent day last. With "My teams" on,
  * all shown games are favorites, so they're grouped by day too.
  */
-private fun LazyListScope.dayGroupedItems(
+internal fun LazyListScope.dayGroupedItems(
     section: String,
     games: List<Game>,
     isFav: (Game) -> Boolean,
@@ -344,7 +344,7 @@ private fun DayDivider(d: java.time.LocalDate?) {
 
 /** Draws content at a different size by scaling dp and sp together, so layout (not just pixels) shrinks or grows. */
 @Composable
-private fun Zoomed(scale: Float, content: @Composable () -> Unit) {
+internal fun Zoomed(scale: Float, content: @Composable () -> Unit) {
     val d = LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(d.density * scale, d.fontScale)) { content() }
 }
@@ -461,7 +461,7 @@ fun GameCard(g: Game, favorite: Boolean, odds: GameOdds? = null, showDate: Boole
                             }
                         }
                     }
-                    if (g.state == "pre" || g.state == "in") GameWeatherTag(g, compact, Modifier.weight(1f, fill = false))
+                    if ((g.state == "pre" || g.state == "in") && g.league.isFootball) GameWeatherTag(g, compact, Modifier.weight(1f, fill = false))
                 }
             }
             if (odds != null && g.state == "pre") OddsTable(odds, g.away.abbr, g.home.abbr, Modifier.padding(top = 8.dp))
@@ -515,11 +515,12 @@ private fun TeamLine(t: TeamSide, g: Game, hasBall: Boolean) {
  * which asks apps to send a descriptive User-Agent.
  */
 @Composable
-private fun LeagueLogo(l: League) {
+internal fun LeagueLogo(l: League) {
     val ctx = LocalContext.current
     val url = when (l) {
         League.NFL -> "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png"
         League.CFB -> "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/NCAA_logo.svg/120px-NCAA_logo.svg.png"
+        League.NHL -> "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png"
     }
     val request = rememberCrispRequest(url, 22.dp) {
         setHeader("User-Agent", "Scoreology/1.0 (Android app; https://github.com/Gozdor1234/Scoreology)")

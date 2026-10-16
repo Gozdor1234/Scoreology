@@ -57,7 +57,13 @@ val navTabs = listOf(
     NavTab("Golf", drawable = R.drawable.ic_nav_golf),
     NavTab("Standings", Icons.AutoMirrored.Filled.List),
     NavTab("Settings", Icons.Filled.Settings),
+    NavTab("NHL", drawable = R.drawable.ic_nav_nhl),
 )
+
+const val TAB_SCORES = 0
+const val TAB_GOLF = 2
+const val TAB_SETTINGS = 4
+const val TAB_NHL = 5
 
 /**
  * Bottom navigation that looks like Material's bar (icon in a pill when selected, label below),

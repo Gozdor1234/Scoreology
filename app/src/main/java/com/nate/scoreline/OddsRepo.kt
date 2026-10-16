@@ -35,7 +35,11 @@ object FanDuelOdds {
     var lastFetch by mutableStateOf(0L)
         private set
 
-    private fun sport(l: League) = if (l == League.NFL) "americanfootball_nfl" else "americanfootball_ncaaf"
+    private fun sport(l: League) = when (l) {
+        League.NFL -> "americanfootball_nfl"
+        League.CFB -> "americanfootball_ncaaf"
+        League.NHL -> "icehockey_nhl"
+    }
 
     private fun prefs(c: Context) = c.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 

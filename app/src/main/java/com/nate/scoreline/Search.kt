@@ -89,6 +89,7 @@ object SearchData {
                 val league = when (slug) {
                     "nfl" -> League.NFL
                     "college-football" -> League.CFB
+                    "nhl" -> League.NHL
                     else -> null
                 }
                 when {

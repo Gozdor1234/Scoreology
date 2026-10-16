@@ -73,6 +73,21 @@ sealed interface Route {
     data class F1Driver(val driverId: String, val name: String) : Route
     data object Search : Route
     data class F1Team(val constructorId: String, val name: String) : Route
+    /** A section that isn't on the bottom bar right now (e.g. Golf), opened from Settings. */
+    data class Section(val tabId: Int) : Route
+}
+
+/** The screen for a bottom-bar tab id. */
+@Composable
+fun TabContent(id: Int, modifier: Modifier, open: (Route) -> Unit) {
+    when (id) {
+        TAB_SCORES -> ScoresScreen(modifier, open)
+        1 -> F1Screen(modifier, open)
+        TAB_GOLF -> GolfScreen(modifier, open)
+        3 -> StandingsScreen(modifier, open)
+        TAB_NHL -> NhlScreen(modifier, open)
+        else -> SettingsScreen(modifier, open)
+    }
 }
 
 
@@ -108,6 +123,7 @@ fun App(pendingRoute: MutableState<Route?>) {
         Route.Search -> SearchScreen(onBack = back, open = open)
         is Route.F1Driver -> F1DriverScreen(top.driverId, top.name, onBack = back, open = open)
         is Route.F1Team -> F1TeamScreen(top.constructorId, top.name, onBack = back, open = open)
+        is Route.Section -> SectionScreen(top.tabId, onBack = back, open = open)
         null -> holder.SaveableStateProvider("tabs") {
           Scaffold(
             bottomBar = {
@@ -115,20 +131,16 @@ fun App(pendingRoute: MutableState<Route?>) {
                 val fav = Favorites.get(LocalContext.current)
                 ReorderableNavBar(
                     order = fav.navOrder,
-                    selected = tab,
+                    selected = if (tab in fav.navOrder) tab else fav.navOrder.first(),
                     onSelect = { tab = it },
                     onReorder = { fav.updateNavOrder(it) },
                 )
             },
         ) { pad ->
             val m = Modifier.padding(pad)
-            when (tab) {
-                0 -> ScoresScreen(m, open)
-                1 -> F1Screen(m, open)
-                2 -> GolfScreen(m, open)
-                3 -> StandingsScreen(m, open)
-                else -> SettingsScreen(m, open)
-            }
+            // A tab that was just taken off the bar falls back to the first one still on it.
+            val order = Favorites.get(LocalContext.current).navOrder
+            TabContent(if (tab in order) tab else order.first(), m, open)
           }
         }
     }
