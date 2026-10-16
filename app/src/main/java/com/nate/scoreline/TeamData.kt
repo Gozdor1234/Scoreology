@@ -1,5 +1,6 @@
 package com.nate.scoreline
 
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
@@ -149,11 +150,14 @@ object TeamApi {
     /** Season player stats: load every finished game's box score (in parallel) and add them up. */
     suspend fun seasonStats(league: League, teamId: String, games: List<Game>): TeamSeasonStats {
         val finished = games.filter { it.state == "post" }
+        // A hockey season is 82 games, so box scores load a few at a time instead of all at once.
+        val gate = kotlinx.coroutines.sync.Semaphore(6)
         val details = supervisorScope {
             finished.map { g ->
                 async {
-                    finishedSummaries[g.id] ?: runCatching { Espn.summary(league, g.id) }.getOrNull()
-                        ?.also { finishedSummaries[g.id] = it }
+                    finishedSummaries[g.id] ?: gate.withPermit {
+                        runCatching { Espn.summary(league, g.id) }.getOrNull()
+                    }?.also { finishedSummaries[g.id] = it }
                 }
             }.awaitAll().filterNotNull()
         }
