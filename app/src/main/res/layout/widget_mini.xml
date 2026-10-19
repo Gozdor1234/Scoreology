@@ -4,7 +4,6 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
     android:orientation="vertical">
 
     <LinearLayout
@@ -46,6 +45,15 @@
             android:src="@drawable/ic_widget_refresh" />
     </LinearLayout>
 
+    <!-- Everything below the glass header sits on the solid card. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@drawable/widget_body_bg"
+        android:orientation="vertical">
+
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -68,4 +76,5 @@
             android:textColor="@color/widget_subtext"
             android:textSize="12sp" />
     </FrameLayout>
+    </LinearLayout>
 </LinearLayout>

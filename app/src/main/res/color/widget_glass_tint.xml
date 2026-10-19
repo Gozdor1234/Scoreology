@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See-through dark glass (Android 11 and older: fixed slate tint). -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="0.55" android:color="#FF262A3A" />
+</selector>
