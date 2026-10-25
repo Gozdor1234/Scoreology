@@ -72,16 +72,24 @@ import androidx.compose.foundation.background
 @Composable
 fun F1Screen(modifier: Modifier, open: (Route) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    val polled = rememberPolled<List<F1Weekend>>(
+        key = "f1w",
+        intervalMs = { w -> if (w?.any { e -> e.sessions.any { it.isLive } } == true) LIVE_MS else IDLE_MS },
+    ) { F1.weekends() }
+    // While a session is live, the first tab becomes the live page.
+    val live = polled.state.data?.firstNotNullOfOrNull { w -> w.sessions.firstOrNull { it.isLive }?.let { w to it } }
     Column(modifier.fillMaxSize()) {
         SearchTabs(open) {
             TabRow(selectedTabIndex = tab) {
-                listOf("This weekend", "Season", "Last race").forEachIndexed { i, s ->
-                    Tab(selected = tab == i, onClick = { tab = i }, text = { Text(s) })
+                listOf(if (live != null) "● Live" else "This weekend", "Season", "Last race").forEachIndexed { i, s ->
+                    Tab(selected = tab == i, onClick = { tab = i }, text = {
+                        if (i == 0 && live != null) Text(s, color = LiveRed, fontWeight = FontWeight.SemiBold) else Text(s)
+                    })
                 }
             }
         }
         when (tab) {
-            0 -> WeekendView()
+            0 -> if (live != null) F1LiveView(live.first, live.second, polled.state.updatedAt, open) else WeekendView(polled)
             1 -> SeasonView(open)
             else -> LastRaceView(open)
         }
@@ -89,12 +97,8 @@ fun F1Screen(modifier: Modifier, open: (Route) -> Unit) {
 }
 
 @Composable
-private fun WeekendView() {
+private fun WeekendView(polled: Polled<List<F1Weekend>>) {
     val fav = Favorites.get(LocalContext.current)
-    val polled = rememberPolled<List<F1Weekend>>(
-        key = "f1w",
-        intervalMs = { w -> if (w?.any { e -> e.sessions.any { it.isLive } } == true) LIVE_MS else IDLE_MS },
-    ) { F1.weekends() }
 
     // Tyre stints (OpenF1) and points (Jolpica), refreshed alongside the weekend data.
     val appCtx = LocalContext.current
