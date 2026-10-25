@@ -36,10 +36,25 @@ object PlayerTrends {
         }
         if (games.size < 3) return emptyList()
         val team = teamName.substringBeforeLast(' ').ifBlank { "His team" }
-        return candidates(games, position.uppercase(), team)
+        val picked = candidates(games, position.uppercase(), team)
             .sortedByDescending { it.score }
             .fold(mutableListOf<T>()) { acc, t -> if (acc.count { it.stat == t.stat } < 2 && acc.size < MAX) acc += t; acc }
-            .map { it.text }
+        // Anyone with a trend gets at least two: top up with plain season facts (best game, per-game average).
+        if (picked.size == 1) picked += fillers(games, position.uppercase()).filter { f -> picked.none { it.stat == f.stat } }.take(1)
+        return picked.map { it.text }
+    }
+
+    /** Always-true season facts, used only to bring a single trend up to two bullets. */
+    private fun fillers(games: List<G>, pos: String): List<T> {
+        val main = when (pos) { "QB" -> "passYds"; "RB", "FB" -> "rushYds"; else -> "recYds" }
+        val kind = mapOf("passYds" to "passing", "rushYds" to "rushing", "recYds" to "receiving")[main]
+        if (games.any { it.v[main] == null }) return emptyList()
+        val best = games.maxBy { it.v[main]!! }
+        val avg = games.sumOf { it.v[main]!! } / games.size
+        return listOf(
+            T("His best game this season was ${fmt(best.v[main]!!)} $kind yards ${best.opp}.", 0, "best"),
+            T("He is averaging ${avg.roundToInt()} $kind yards per game over ${games.size} games.", 0, "avg"),
+        )
     }
 
     /** (group keyword, label) -> column, using the column groups ("Rushing", "Receiving", "Passing"). */
@@ -171,7 +186,7 @@ object PlayerTrends {
             val v = vals(main).map { it!! }
             val minYds = if (main == "passYds") 250.0 else 75.0
             if (v.last() >= minYds && v.dropLast(1).all { it < v.last() }) {
-                out += T("His ${fmt(v.last())} ${kindOf[main]} yards ${games.last().opp} last game were a season high.", 55, main)
+                out += T("His ${fmt(v.last())} ${kindOf[main]} yards ${games.last().opp} last game were a season high.", 55, "best")
             }
         }
         return out
