@@ -3,6 +3,8 @@
 package com.nate.scoreline
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -153,6 +155,14 @@ fun PlayerScreen(league: League, athleteId: String, onBack: () -> Unit, open: (R
                                                 rowClickable = { true },
                                                 onRowClick = { i -> open(Route.GameDetail(league, sec.games[i].eventId)) },
                                             )
+                                        }
+                                        // Season trends under the game log, current season only.
+                                        if (gl.seasons.isEmpty() || gl.selectedSeason == gl.seasons.first().first) {
+                                            val trends = PlayerTrends.build(gl, ath.position, ath.teamName)
+                                            if (trends.isNotEmpty()) {
+                                                val label = gl.seasons.firstOrNull()?.second.orEmpty()
+                                                item(key = "trends") { TrendsCard(if (label.isBlank()) "Trends" else "$label Trends", trends) }
+                                            }
                                         }
                                     }
                                 }
@@ -338,4 +348,25 @@ private fun gameLabel(g: GameLogEntry): String {
         ""
     }
     return listOf(d, g.opponent, g.result).filter { it.isNotBlank() }.joinToString("  ")
+}
+
+
+/** Up to 5 one-sentence season trends, as a bulleted card. */
+@Composable
+private fun TrendsCard(title: String, trends: List<String>) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 14.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            trends.forEach { t ->
+                Row(Modifier.padding(top = 8.dp)) {
+                    Box(
+                        Modifier.padding(top = 7.dp).size(6.dp)
+                            .background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(t, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
 }
