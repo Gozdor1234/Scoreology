@@ -78,7 +78,38 @@ object F1 {
     private const val ESPN = "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard"
     private const val JOLPICA = "https://api.jolpi.ca/ergast/f1/current"
 
-    suspend fun weekends(): List<F1Weekend> = parseWeekends(Net.getJson(ESPN))
+    /**
+     * ESPN keeps listing a finished weekend for days after the race. From the day after its last
+     * session, show the next round from Jolpica's schedule instead (no results yet, just the sessions).
+     */
+    suspend fun weekends(): List<F1Weekend> {
+        val espn = parseWeekends(Net.getJson(ESPN))
+        if (!weekendOver(espn, java.time.LocalDate.now())) return espn
+        val next = runCatching { nextWeekend(season(), java.time.Instant.now()) }.getOrNull() ?: return espn
+        return listOf(next)
+    }
+
+    /** True when every listed session is final and the last one was before [today] (phone's time zone). */
+    fun weekendOver(ws: List<F1Weekend>, today: java.time.LocalDate, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): Boolean =
+        ws.isNotEmpty() && ws.all { w ->
+            val last = w.sessions.mapNotNull { runCatching { java.time.OffsetDateTime.parse(it.date).atZoneSameInstant(zone).toLocalDate() }.getOrNull() }.maxOrNull()
+            w.sessions.isNotEmpty() && w.sessions.all { it.state == "post" } && last != null && last < today
+        }
+
+    /** The first round whose race hasn't started yet, as an upcoming weekend. */
+    fun nextWeekend(rounds: List<F1Round>, now: java.time.Instant): F1Weekend? {
+        fun start(iso: String): java.time.Instant? = runCatching { java.time.Instant.parse(iso) }.getOrNull()
+            ?: runCatching { java.time.LocalDate.parse(iso.take(10)).atStartOfDay(java.time.ZoneOffset.UTC).plusDays(1).toInstant() }.getOrNull()
+        val r = rounds.firstOrNull { start(it.dateIso)?.isAfter(now) == true } ?: return null
+        return F1Weekend(
+            id = "round-${r.round}",
+            name = r.name,
+            circuit = r.circuit,
+            location = r.location,
+            date = r.dateIso,
+            sessions = r.sessions.map { (label, iso) -> F1Session("round-${r.round}-$label", label, iso, "pre", "", emptyList()) },
+        )
+    }
     suspend fun lastRace(): F1Race? = parseLastRace(Net.getJson("$JOLPICA/last/results.json"))
     /** Full season schedule, with winners filled in for completed rounds. */
     suspend fun season(): List<F1Round> = coroutineScope {
