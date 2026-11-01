@@ -52,7 +52,7 @@ fun PlayerScreen(league: League, athleteId: String, onBack: () -> Unit, open: (R
     val ovP = rememberPolled<AthleteOverview>("ov-$key", { 15 * 60_000L }) { TeamApi.athleteOverview(league, athleteId) }
     val stP = rememberPolled<List<CareerTable>>("st-$key", { 30 * 60_000L }) { TeamApi.athleteStats(league, athleteId) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var statsMode by rememberSaveable { mutableIntStateOf(0) } // 0 by season, 1 by game
+    var statsMode by rememberSaveable { mutableIntStateOf(1) } // 0 by season, 1 by game (default)
     var season by rememberSaveable { mutableStateOf<String?>(null) } // null = current season
     // Game log loads only when you open "By game".
     val glP = if (tab == 1 && statsMode == 1) {
@@ -117,8 +117,8 @@ fun PlayerScreen(league: League, athleteId: String, onBack: () -> Unit, open: (R
                         1 -> {
                             item {
                                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(selected = statsMode == 0, onClick = { statsMode = 0 }, label = { Text("By season") })
                                     FilterChip(selected = statsMode == 1, onClick = { statsMode = 1 }, label = { Text("By game") })
+                                    FilterChip(selected = statsMode == 0, onClick = { statsMode = 0 }, label = { Text("By season") })
                                 }
                             }
                             if (statsMode == 1) {
